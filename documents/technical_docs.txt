@@ -127,3 +127,9 @@
       │  S3    │   │  Aurora    │◄───────────────────►│  SNS / SES  │
       │(生ログ)│   │PostgreSQL  │      通知メール／Slack│ (通知配信) │
       └────────┘   └────────────┘                     └────────────┘
+
+# Framework
+- Frontend: TypeScript
+- backend: Fast API (Python)
+- LLM Framework: Pydantic AI
+- LLM: Amazon Bedrock 
