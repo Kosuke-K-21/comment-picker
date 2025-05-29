@@ -3,6 +3,7 @@ import io
 import random
 from typing import List, Dict, Any
 from fastapi import UploadFile, HTTPException
+from fastapi.responses import StreamingResponse
 
 
 class CSVService:
@@ -164,6 +165,37 @@ class CSVService:
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error during analysis: {str(e)}")
+    
+    def download_analyzed_csv(self) -> StreamingResponse:
+        """Download the analyzed CSV file"""
+        if self.csv_data.empty:
+            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a CSV file first.")
+        
+        if not self.analyzed:
+            raise HTTPException(status_code=400, detail="CSV has not been analyzed yet. Please analyze the CSV first.")
+        
+        try:
+            # Convert DataFrame to CSV string
+            csv_buffer = io.StringIO()
+            self.csv_data.to_csv(csv_buffer, index=False, encoding='utf-8')
+            csv_content = csv_buffer.getvalue()
+            
+            # Create a BytesIO object for the response
+            csv_bytes = io.BytesIO(csv_content.encode('utf-8'))
+            
+            # Generate filename with timestamp
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"analyzed_{self.filename.replace('.csv', '')}_{timestamp}.csv"
+            
+            return StreamingResponse(
+                io.BytesIO(csv_content.encode('utf-8')),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating CSV download: {str(e)}")
 
 
 # Global instance to store CSV data in memory

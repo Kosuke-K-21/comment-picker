@@ -101,6 +101,40 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
     }
   };
 
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/csv/download`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Download failed');
+      }
+
+      // Get the filename from the response headers
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'analyzed_data.csv';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename=(.+)/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Download failed');
+    }
+  };
+
   if (!uploadInfo) {
     return (
       <div className="csv-viewer">
@@ -113,13 +147,23 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
     <div className="csv-viewer">
       <div className="csv-header">
         <h3>CSV Data: {uploadInfo.filename}</h3>
-        <button
-          onClick={handleAnalyze}
-          disabled={analyzing || analyzed}
-          className="analyze-btn"
-        >
-          {analyzing ? '解析中...' : analyzed ? '解析済み' : '解析開始'}
-        </button>
+        <div className="header-buttons">
+          <button
+            onClick={handleAnalyze}
+            disabled={analyzing || analyzed}
+            className="analyze-btn"
+          >
+            {analyzing ? '解析中...' : analyzed ? '解析済み' : '解析開始'}
+          </button>
+          {analyzed && (
+            <button
+              onClick={handleDownload}
+              className="download-btn"
+            >
+              📥 CSVダウンロード
+            </button>
+          )}
+        </div>
       </div>
       
       {loading && <div className="loading">Loading...</div>}

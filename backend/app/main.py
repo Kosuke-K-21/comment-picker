@@ -20,4 +20,4 @@ app.include_router(csv.router)
 
 @app.get("/")
 async def read_root():
-    return {"message": "Welcome to the Comment Picker API!"}
+    return {"message": "Welcome to the Comment Picker!"}
