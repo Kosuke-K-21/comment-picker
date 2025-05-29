@@ -44,3 +44,11 @@ async def download_analyzed_csv():
 async def get_analysis_statistics() -> Dict[str, Any]:
     """Get analysis statistics for visualization"""
     return csv_service.get_analysis_statistics()
+
+
+@router.get("/top-comments")
+async def get_top_comments(
+    max_count: int = Query(5, ge=1, le=10, description="Maximum number of top comments to return")
+) -> Dict[str, Any]:
+    """Get top comments based on importance and commonality score"""
+    return csv_service.get_top_comments(max_count=max_count)

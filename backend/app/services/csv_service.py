@@ -261,6 +261,74 @@ class CSVService:
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error generating statistics: {str(e)}")
+    
+    def get_top_comments(self, max_count: int = 5) -> Dict[str, Any]:
+        """Get top comments based on commonality and importance score"""
+        if self.csv_data.empty:
+            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a CSV file first.")
+        
+        if not self.analyzed:
+            raise HTTPException(status_code=400, detail="CSV has not been analyzed yet. Please analyze the CSV first.")
+        
+        try:
+            # Convert importance and commonality to numeric scores
+            importance_map = {'高': 3, '中': 2, '低': 1}
+            commonality_map = {'高': 3, '中': 2, '低': 1}
+            
+            # Calculate score for each comment
+            df_with_score = self.csv_data.copy()
+            df_with_score['importance_score'] = df_with_score['重要性'].map(importance_map)
+            df_with_score['commonality_score'] = df_with_score['共通性'].map(commonality_map)
+            df_with_score['total_score'] = df_with_score['importance_score'] * df_with_score['commonality_score']
+            
+            # Get overall top comments
+            overall_top = df_with_score.nlargest(max_count, 'total_score')
+            overall_comments = []
+            for _, row in overall_top.iterrows():
+                comment_id = row.get('コメントID', row.get('comment_id', row.get('id', 'N/A')))
+                comment_text = row.get('コメント', row.get('comment', row.get('comments', 'N/A')))
+                overall_comments.append({
+                    "id": str(comment_id),
+                    "comment": str(comment_text),
+                    "category": row['カテゴリ'],
+                    "sentiment": row['感情'],
+                    "importance": row['重要性'],
+                    "commonality": row['共通性'],
+                    "score": int(row['total_score'])
+                })
+            
+            # Get top comments by category
+            category_top_comments = {}
+            categories = df_with_score['カテゴリ'].unique()
+            
+            for category in categories:
+                category_data = df_with_score[df_with_score['カテゴリ'] == category]
+                category_top = category_data.nlargest(max_count, 'total_score')
+                
+                category_comments = []
+                for _, row in category_top.iterrows():
+                    comment_id = row.get('コメントID', row.get('comment_id', row.get('id', 'N/A')))
+                    comment_text = row.get('コメント', row.get('comment', row.get('comments', 'N/A')))
+                    category_comments.append({
+                        "id": str(comment_id),
+                        "comment": str(comment_text),
+                        "category": row['カテゴリ'],
+                        "sentiment": row['感情'],
+                        "importance": row['重要性'],
+                        "commonality": row['共通性'],
+                        "score": int(row['total_score'])
+                    })
+                
+                category_top_comments[category] = category_comments
+            
+            return {
+                "max_count": max_count,
+                "overall_top_comments": overall_comments,
+                "category_top_comments": category_top_comments
+            }
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating top comments: {str(e)}")
 
 
 # Global instance to store CSV data in memory
