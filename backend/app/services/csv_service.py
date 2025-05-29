@@ -127,7 +127,7 @@ class CSVService:
                         )
             
             # Add analysis columns with random values (placeholder for LLM)
-            sentiment_options = ['ポジティブ', 'ネガティブ']
+            sentiment_options = ['ポジティブ', '中立', 'ネガティブ']
             category_options = ['講義内容', '講義資料', '運営', 'その他']
             importance_options = ['高', '中', '低']
             commonality_options = ['高', '中', '低']
@@ -196,6 +196,71 @@ class CSVService:
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error generating CSV download: {str(e)}")
+    
+    def get_analysis_statistics(self) -> Dict[str, Any]:
+        """Get analysis statistics for visualization"""
+        if self.csv_data.empty:
+            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a CSV file first.")
+        
+        if not self.analyzed:
+            raise HTTPException(status_code=400, detail="CSV has not been analyzed yet. Please analyze the CSV first.")
+        
+        try:
+            # Category statistics
+            category_counts = self.csv_data['カテゴリ'].value_counts().to_dict()
+            total_comments = len(self.csv_data)
+            
+            category_stats = []
+            for category, count in category_counts.items():
+                percentage = round((count / total_comments) * 100, 1)
+                category_stats.append({
+                    "category": category,
+                    "count": int(count),
+                    "percentage": percentage
+                })
+            
+            # Sentiment statistics overall
+            sentiment_counts = self.csv_data['感情'].value_counts().to_dict()
+            overall_sentiment = {
+                "positive": sentiment_counts.get('ポジティブ', 0),
+                "neutral": sentiment_counts.get('中立', 0),
+                "negative": sentiment_counts.get('ネガティブ', 0),
+                "positive_percentage": round((sentiment_counts.get('ポジティブ', 0) / total_comments) * 100, 1),
+                "neutral_percentage": round((sentiment_counts.get('中立', 0) / total_comments) * 100, 1),
+                "negative_percentage": round((sentiment_counts.get('ネガティブ', 0) / total_comments) * 100, 1)
+            }
+            
+            # Sentiment statistics by category
+            category_sentiment_stats = []
+            for category in category_counts.keys():
+                category_data = self.csv_data[self.csv_data['カテゴリ'] == category]
+                category_sentiment_counts = category_data['感情'].value_counts().to_dict()
+                category_total = len(category_data)
+                
+                positive_count = category_sentiment_counts.get('ポジティブ', 0)
+                neutral_count = category_sentiment_counts.get('中立', 0)
+                negative_count = category_sentiment_counts.get('ネガティブ', 0)
+                
+                category_sentiment_stats.append({
+                    "category": category,
+                    "positive": int(positive_count),
+                    "neutral": int(neutral_count),
+                    "negative": int(negative_count),
+                    "positive_percentage": round((positive_count / category_total) * 100, 1) if category_total > 0 else 0,
+                    "neutral_percentage": round((neutral_count / category_total) * 100, 1) if category_total > 0 else 0,
+                    "negative_percentage": round((negative_count / category_total) * 100, 1) if category_total > 0 else 0,
+                    "total": category_total
+                })
+            
+            return {
+                "total_comments": total_comments,
+                "category_statistics": category_stats,
+                "overall_sentiment": overall_sentiment,
+                "category_sentiment_statistics": category_sentiment_stats
+            }
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating statistics: {str(e)}")
 
 
 # Global instance to store CSV data in memory

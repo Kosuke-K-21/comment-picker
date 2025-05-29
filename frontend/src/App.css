@@ -354,6 +354,160 @@ h3 {
   color: #61dafb;
 }
 
+/* Tab Styles */
+.tabs-container {
+  margin-top: 20px;
+  width: 100%;
+}
+
+.tabs-header {
+  display: flex;
+  border-bottom: 2px solid #444;
+  margin-bottom: 20px;
+}
+
+.tab-button {
+  background: none;
+  border: none;
+  padding: 12px 24px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.tab-button:hover:not(:disabled) {
+  color: #61dafb;
+  background-color: rgba(97, 218, 251, 0.1);
+}
+
+.tab-button.active {
+  color: #61dafb;
+  border-bottom-color: #61dafb;
+  background-color: rgba(97, 218, 251, 0.1);
+}
+
+.tab-button:disabled {
+  color: #666;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.tab-content {
+  width: 100%;
+}
+
+/* Analysis Results Styles */
+.analysis-results {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.results-summary {
+  margin-bottom: 30px;
+  padding: 15px;
+  background-color: rgba(97, 218, 251, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid #61dafb;
+}
+
+.results-section {
+  margin-bottom: 40px;
+}
+
+.pie-chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  text-align: center;
+}
+
+.pie-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.sentiment-bar-container {
+  margin-bottom: 20px;
+}
+
+.sentiment-bar {
+  width: 100%;
+  height: 30px;
+  display: flex;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 10px 0;
+}
+
+.sentiment-positive {
+  background-color: #4caf50;
+  transition: width 0.5s ease;
+}
+
+.sentiment-neutral {
+  background-color: #ff9800;
+  transition: width 0.5s ease;
+}
+
+.sentiment-negative {
+  background-color: #f44336;
+  transition: width 0.5s ease;
+}
+
+.sentiment-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.positive-label {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.neutral-label {
+  color: #ff9800;
+  font-weight: bold;
+}
+
+.negative-label {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.category-sentiment-section {
+  margin-top: 30px;
+}
+
+.category-sentiment-section h5 {
+  color: #61dafb;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 10px;
+}
+
 @media (max-width: 768px) {
   .controls {
     flex-direction: column;
@@ -373,5 +527,24 @@ h3 {
   .csv-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .pie-chart-container {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .sentiment-labels {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .tabs-header {
+    flex-direction: column;
+  }
+  
+  .tab-button {
+    width: 100%;
+    text-align: center;
   }
 }

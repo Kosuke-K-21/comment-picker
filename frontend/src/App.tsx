@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import CSVUploader from './CSVUploader';
 import CSVViewer from './CSVViewer';
+import AnalysisResults from './AnalysisResults';
 
 interface ApiResponse {
   message: string;
@@ -11,6 +12,8 @@ const App: React.FC = () => {
   const [message, setMessage] = useState<string>('Loading...');
   const [error, setError] = useState<string | null>(null);
   const [uploadInfo, setUploadInfo] = useState<any>(null);
+  const [analyzed, setAnalyzed] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'data' | 'results'>('data');
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
@@ -39,7 +42,13 @@ const App: React.FC = () => {
 
   const handleUploadSuccess = (data: any) => {
     setUploadInfo(data);
+    setAnalyzed(false);
+    setActiveTab('data');
     console.log('Upload successful:', data);
+  };
+
+  const handleAnalysisComplete = () => {
+    setAnalyzed(true);
   };
 
   return (
@@ -65,10 +74,41 @@ const App: React.FC = () => {
             apiUrl={apiUrl}
           />
           
-          <CSVViewer 
-            apiUrl={apiUrl}
-            uploadInfo={uploadInfo}
-          />
+          {uploadInfo && (
+            <div className="tabs-container">
+              <div className="tabs-header">
+                <button 
+                  className={`tab-button ${activeTab === 'data' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('data')}
+                >
+                  📊 データ表示
+                </button>
+                <button 
+                  className={`tab-button ${activeTab === 'results' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('results')}
+                  disabled={!analyzed}
+                >
+                  📈 解析結果
+                </button>
+              </div>
+              
+              <div className="tab-content">
+                {activeTab === 'data' && (
+                  <CSVViewer 
+                    apiUrl={apiUrl}
+                    uploadInfo={uploadInfo}
+                    onAnalysisComplete={handleAnalysisComplete}
+                  />
+                )}
+                {activeTab === 'results' && (
+                  <AnalysisResults 
+                    apiUrl={apiUrl}
+                    analyzed={analyzed}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </header>
     </div>

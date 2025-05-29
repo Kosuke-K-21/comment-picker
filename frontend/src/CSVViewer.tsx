@@ -17,9 +17,10 @@ interface CSVData {
 interface CSVViewerProps {
   apiUrl: string;
   uploadInfo: any;
+  onAnalysisComplete?: () => void;
 }
 
-const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
+const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo, onAnalysisComplete }) => {
   const [csvData, setCsvData] = useState<CSVData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +91,11 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
         setDangerousComments(result.dangerous_comments);
       } else {
         setDangerousComments([]);
+      }
+      
+      // Notify parent component that analysis is complete
+      if (onAnalysisComplete) {
+        onAnalysisComplete();
       }
       
       // Refresh the data to show the new columns

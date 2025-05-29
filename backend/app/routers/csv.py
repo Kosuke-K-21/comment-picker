@@ -38,3 +38,9 @@ async def analyze_csv() -> Dict[str, Any]:
 async def download_analyzed_csv():
     """Download the analyzed CSV file"""
     return csv_service.download_analyzed_csv()
+
+
+@router.get("/statistics")
+async def get_analysis_statistics() -> Dict[str, Any]:
+    """Get analysis statistics for visualization"""
+    return csv_service.get_analysis_statistics()
