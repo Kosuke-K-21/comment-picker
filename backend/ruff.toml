@@ -1,0 +1,74 @@
+
+line-length = 120
+indent-width = 4
+output-format = "grouped"
+
+[lint]
+select = [
+    "AIR",   # Airflow
+    "ASYNC", # flake8-async
+    "BLE",   # flake8-blind-except
+    "C4",    # flake8-comprehensions
+    "C90",   # mccabe
+    "DTZ",   # flake8-datetimez
+    "E",     # pycodestyle
+    "F",     # Pyflakes
+    "FA",    # flake8-future-annotations
+    "FLY",   # flynt
+    "I",     # isort
+    "ICN",   # flake8-import-conventions
+    "INT",   # flake8-gettext
+    "NPY",   # NumPy-specific rules
+    "PL",    # Pylint
+    "PYI",   # flake8-pyi
+    "RSE",   # flake8-raise
+    "RUF",   # Ruff-specific rules
+    "S",     # flake8-bandit
+    "SLOT",  # flake8-slots
+    "T10",   # flake8-debugger
+    "TID",   # flake8-tidy-imports
+    "TRY",   # tryceratops
+    "UP",    # pyupgrade
+    "W",     # pycodestyle
+    "YTT",   # flake8-2020
+]
+ignore = [
+    "RUF001",  # ambiguous unicode character is used
+    "RUF002",  # ambiguous unicode character is used
+    "RUF003",  # ambiguous unicode character is used
+    "PLR0913", # Too many cost to fix existing code
+    "S101",
+    "TRY003",
+    "PLW2901",
+]
+
+[lint.extend-per-file-ignores]
+# Also ignore `E402` in all `__init__.py` files.
+"tests/*.py" = ["PLR2004"]
+
+[lint.flake8-annotations]
+mypy-init-return = true
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.isort]
+known-first-party = ["svtr"]
+length-sort = false
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.pep8-naming]
+classmethod-decorators = [
+    "classmethod",
+    "pydantic.validator",
+    "pydantic.root_validator",
+    "pydantic.field_validator",
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
