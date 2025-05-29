@@ -81,6 +81,35 @@
   text-align: left;
 }
 
+.csv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.analyze-btn {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.analyze-btn:disabled {
+  background-color: #666;
+  cursor: not-allowed;
+}
+
+.analyze-btn:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
 .controls {
   display: flex;
   justify-content: space-between;
@@ -214,5 +243,10 @@ h3 {
   .pagination {
     flex-direction: column;
     gap: 10px;
+  }
+  
+  .csv-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

@@ -1,5 +1,6 @@
 import pandas as pd
 import io
+import random
 from typing import List, Dict, Any
 from fastapi import UploadFile, HTTPException
 
@@ -8,6 +9,7 @@ class CSVService:
     def __init__(self):
         self.csv_data: pd.DataFrame = pd.DataFrame()
         self.filename: str = ""
+        self.analyzed: bool = False
     
     async def upload_csv(self, file: UploadFile) -> Dict[str, Any]:
         """Upload and parse CSV file"""
@@ -22,6 +24,7 @@ class CSVService:
             csv_string = content.decode('utf-8')
             self.csv_data = pd.read_csv(io.StringIO(csv_string))
             self.filename = file.filename
+            self.analyzed = False
             
             return {
                 "filename": self.filename,
@@ -80,8 +83,70 @@ class CSVService:
             "filename": self.filename,
             "total_rows": len(self.csv_data),
             "columns": list(self.csv_data.columns),
-            "sample_data": self.csv_data.head(3).to_dict('records')
+            "sample_data": self.csv_data.head(3).to_dict('records'),
+            "analyzed": self.analyzed
         }
+    
+    def analyze_comments(self) -> Dict[str, Any]:
+        """Analyze comments using LLM (currently using random values)"""
+        if self.csv_data.empty:
+            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a CSV file first.")
+        
+        if self.analyzed:
+            return {
+                "message": "CSV has already been analyzed",
+                "total_rows": len(self.csv_data),
+                "analyzed": True
+            }
+        
+        try:
+            # Check if required columns exist
+            required_columns = ['コメントID', '受講生ID', 'コメント']
+            missing_columns = [col for col in required_columns if col not in self.csv_data.columns]
+            
+            if missing_columns:
+                # Try alternative column names
+                alt_mapping = {
+                    'コメントID': ['comment_id', 'id', 'Comment ID'],
+                    '受講生ID': ['student_id', 'user_id', 'Student ID'],
+                    'コメント': ['comment', 'comments', 'Comment']
+                }
+                
+                for missing_col in missing_columns:
+                    found = False
+                    for alt_col in alt_mapping.get(missing_col, []):
+                        if alt_col in self.csv_data.columns:
+                            self.csv_data = self.csv_data.rename(columns={alt_col: missing_col})
+                            found = True
+                            break
+                    if not found:
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"Required column '{missing_col}' not found. Expected columns: {required_columns}"
+                        )
+            
+            # Add analysis columns with random values (placeholder for LLM)
+            sentiment_options = ['ポジティブ', 'ネガティブ']
+            category_options = ['講義内容', '講義資料', '運営', 'その他']
+            importance_options = ['高', '中', '低']
+            commonality_options = ['高', '中', '低']
+            
+            self.csv_data['感情'] = [random.choice(sentiment_options) for _ in range(len(self.csv_data))]
+            self.csv_data['カテゴリ'] = [random.choice(category_options) for _ in range(len(self.csv_data))]
+            self.csv_data['重要性'] = [random.choice(importance_options) for _ in range(len(self.csv_data))]
+            self.csv_data['共通性'] = [random.choice(commonality_options) for _ in range(len(self.csv_data))]
+            
+            self.analyzed = True
+            
+            return {
+                "message": "CSV analysis completed successfully",
+                "total_rows": len(self.csv_data),
+                "analyzed": True,
+                "new_columns": ['感情', 'カテゴリ', '重要性', '共通性']
+            }
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error during analysis: {str(e)}")
 
 
 # Global instance to store CSV data in memory

@@ -24,3 +24,9 @@ async def get_csv_data(
 async def get_csv_info() -> Dict[str, Any]:
     """Get information about the uploaded CSV"""
     return csv_service.get_csv_info()
+
+
+@router.post("/analyze")
+async def analyze_csv() -> Dict[str, Any]:
+    """Analyze the uploaded CSV comments"""
+    return csv_service.analyze_comments()

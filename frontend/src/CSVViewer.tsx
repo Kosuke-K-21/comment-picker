@@ -25,6 +25,8 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzed, setAnalyzed] = useState(false);
 
   const fetchData = async (page: number, size: number) => {
     setLoading(true);
@@ -64,6 +66,33 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
     fetchData(1, newSize);
   };
 
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiUrl}/csv/analyze`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Analysis failed');
+      }
+
+      const result = await response.json();
+      console.log('Analysis completed:', result);
+      setAnalyzed(true);
+      
+      // Refresh the data to show the new columns
+      fetchData(currentPage, pageSize);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Analysis failed');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   if (!uploadInfo) {
     return (
       <div className="csv-viewer">
@@ -74,10 +103,20 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
 
   return (
     <div className="csv-viewer">
-      <h3>CSV Data: {uploadInfo.filename}</h3>
+      <div className="csv-header">
+        <h3>CSV Data: {uploadInfo.filename}</h3>
+        <button
+          onClick={handleAnalyze}
+          disabled={analyzing || analyzed}
+          className="analyze-btn"
+        >
+          {analyzing ? '解析中...' : analyzed ? '解析済み' : '解析開始'}
+        </button>
+      </div>
       
       {loading && <div className="loading">Loading...</div>}
       {error && <div className="error">{error}</div>}
+      {analyzing && <div className="loading">コメントを解析しています...</div>}
       
       {csvData && (
         <>
