@@ -132,4 +132,4 @@
 - Frontend: TypeScript
 - backend: Fast API (Python)
 - LLM Framework: Pydantic AI
-- LLM: Amazon Bedrock 
+- LLM: Google Genai SDK

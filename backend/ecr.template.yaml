@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "ecr.template.yml"
+
+Parameters:
+  AppName:
+    Type: String
+    Default: fastrunner
+
+Resources:
+  ECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${AppName}-image"
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256

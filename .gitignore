@@ -1,1 +1,3 @@
 /.clinerules
+/__pycache__/
+/.venv/
