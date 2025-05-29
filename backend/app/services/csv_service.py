@@ -138,11 +138,28 @@ class CSVService:
             
             self.analyzed = True
             
+            # Check for dangerous comments (ネガティブ + 重要性高)
+            dangerous_comments = self.csv_data[
+                (self.csv_data['感情'] == 'ネガティブ') & 
+                (self.csv_data['重要性'] == '高')
+            ]
+            
+            dangerous_list = []
+            if not dangerous_comments.empty:
+                for _, row in dangerous_comments.iterrows():
+                    comment_id = row.get('コメントID', row.get('comment_id', row.get('id', 'N/A')))
+                    comment_text = row.get('コメント', row.get('comment', row.get('comments', 'N/A')))
+                    dangerous_list.append({
+                        "id": str(comment_id),
+                        "comment": str(comment_text)
+                    })
+            
             return {
                 "message": "CSV analysis completed successfully",
                 "total_rows": len(self.csv_data),
                 "analyzed": True,
-                "new_columns": ['感情', 'カテゴリ', '重要性', '共通性']
+                "new_columns": ['感情', 'カテゴリ', '重要性', '共通性'],
+                "dangerous_comments": dangerous_list
             }
             
         except Exception as e:

@@ -27,6 +27,7 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
   const [pageSize, setPageSize] = useState(10);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
+  const [dangerousComments, setDangerousComments] = useState<any[]>([]);
 
   const fetchData = async (page: number, size: number) => {
     setLoading(true);
@@ -84,6 +85,13 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
       console.log('Analysis completed:', result);
       setAnalyzed(true);
       
+      // Set dangerous comments if any
+      if (result.dangerous_comments && result.dangerous_comments.length > 0) {
+        setDangerousComments(result.dangerous_comments);
+      } else {
+        setDangerousComments([]);
+      }
+      
       // Refresh the data to show the new columns
       fetchData(currentPage, pageSize);
     } catch (err) {
@@ -117,6 +125,23 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo }) => {
       {loading && <div className="loading">Loading...</div>}
       {error && <div className="error">{error}</div>}
       {analyzing && <div className="loading">コメントを解析しています...</div>}
+      
+      {dangerousComments.length > 0 && (
+        <div className="danger-alert">
+          <div className="alert-header">
+            <span className="alert-icon">⚠️</span>
+            <h4>危険度の高いコメントが検出されました</h4>
+          </div>
+          <div className="dangerous-comments-list">
+            {dangerousComments.map((comment, index) => (
+              <div key={index} className="dangerous-comment-item">
+                <div className="comment-id">No. {comment.id}</div>
+                <div className="comment-text">{comment.comment}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       {csvData && (
         <>
