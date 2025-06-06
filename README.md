@@ -123,3 +123,7 @@ services:
 ### Network Issues
 
 If the frontend cannot connect to the backend, ensure both services are running and check the Docker network configuration.
+
+### Data
+
+Data stored in `data/` directory is artificially generated for testing purposes.
