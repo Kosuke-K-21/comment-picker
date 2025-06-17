@@ -92,13 +92,55 @@ def generate_agent(
     return agent
 
 
+def calculate_cost(
+    model_name: str,
+    input_tokens: int,
+    output_tokens: int,
+    think_tokens: Optional[int] = None,
+) -> tuple[float, float, float]:
+    """
+    Calculate the total cost based on input, output, and think tokens.
+    """
+    if think_tokens is None:
+        think_tokens = 0
+
+    if "gemini-2.0-flash" in model_name:
+        input_cost_per_mil_token = 0.15
+        output_cost_per_mil_token = 0.60
+
+    elif "gemini-2.5-flash" in model_name:
+        input_cost_per_mil_token = 0.15
+        if think_tokens == 0:
+            output_cost_per_mil_token = 0.60
+        else:
+            output_cost_per_mil_token = 3.5
+    
+    elif "amazon.nova-lite-v1:0" in model_name:
+        input_cost_per_mil_token = 0.00006 * 1000  # Convert to per million tokens
+        output_cost_per_mil_token = 0.00024 * 1000  # Convert to per million tokens
+    
+    elif "amazon.nova-pro-v1:0" in model_name:
+        input_cost_per_mil_token = 0.0008 * 1000
+        output_cost_per_mil_token = 0.0032 * 1000
+
+    else:
+        raise ValueError(f"Unsupported model name: {model_name}")
+
+    input_cost = input_tokens * input_cost_per_mil_token * 1e-6
+    output_cost = output_tokens * output_cost_per_mil_token * 1e-6
+    think_cost = think_tokens * output_cost_per_mil_token * 1e-6
+
+    return input_cost, output_cost, think_cost
+
+
 async def analyze_comment_with_llm(comment: str) -> Dict[str, Any]:
     """Analyze a single comment using Bedrock Nova-lite LLM"""
     try:
         await asyncio.sleep(0.5)  # Rate limiting
         
+        model_id = "amazon.nova-lite-v1:0"
         agent = generate_agent(
-            model_id="amazon.nova-lite-v1:0",
+            model_id=model_id,
             output_type=EvalOutput,
             retries=3,
             temperature=0.2,
@@ -109,11 +151,26 @@ async def analyze_comment_with_llm(comment: str) -> Dict[str, Any]:
         response = await agent.run([comment])
         output = response.output
 
+        # Calculate cost
+        input_tokens = response.usage().request_tokens
+        output_tokens = response.usage().response_tokens
+        total_tokens = response.usage().total_tokens
+        think_tokens = total_tokens - input_tokens - output_tokens
+
+        input_cost, output_cost, think_cost = calculate_cost(
+            model_name=model_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            think_tokens=think_tokens,
+        )
+        total_cost = input_cost + output_cost + think_cost
+
         return {
             "sentiment": output.sentiment.value,
             "category": output.category.value,
             "importance": output.importance.value,
             "commonality": output.commonality.value,
+            "total_cost": total_cost,
             "is_error": False,
         }
     except Exception as e:
@@ -123,6 +180,7 @@ async def analyze_comment_with_llm(comment: str) -> Dict[str, Any]:
             "category": None,
             "importance": None,
             "commonality": None,
+            "total_cost": 0.0,
             "is_error": True,
         }
 
@@ -272,6 +330,7 @@ class CSVService:
             # Process results
             processed_results = []
             error_count = 0
+            total_cost = 0.0
             
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
@@ -281,6 +340,7 @@ class CSVService:
                         "category": "その他",
                         "importance": "中",
                         "commonality": "中",
+                        "total_cost": 0.0,
                         "is_error": True,
                     })
                     error_count += 1
@@ -292,11 +352,13 @@ class CSVService:
                             "category": "その他", 
                             "importance": "中",
                             "commonality": "中",
+                            "total_cost": 0.0,
                             "is_error": True,
                         })
                         error_count += 1
                     else:
                         processed_results.append(result)
+                        total_cost += result.get("total_cost", 0.0)
             
             # Add analysis columns to DataFrame
             self.csv_data['感情'] = [r['sentiment'] for r in processed_results]
@@ -331,7 +393,9 @@ class CSVService:
                 "new_columns": ['感情', 'カテゴリ', '重要性', '共通性'],
                 "dangerous_comments": dangerous_list,
                 "error_rate": f"{error_count / len(self.csv_data):.2%}" if len(self.csv_data) > 0 else "0%",
-                "comment_columns": comment_columns
+                "comment_columns": comment_columns,
+                "total_cost": round(total_cost, 4),
+                "cost_display": f"${total_cost:.4f}"
             }
             
         except Exception as e:
@@ -510,6 +574,144 @@ class CSVService:
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error generating top comments: {str(e)}")
+
+
+    async def generate_comment_report(self) -> Dict[str, Any]:
+        """Generate a comprehensive report from top 50 comments using Nova Pro"""
+        if self.csv_data.empty:
+            raise HTTPException(status_code=404, detail="No data available. Please upload a file first.")
+        
+        if not self.analyzed:
+            raise HTTPException(status_code=400, detail="File has not been analyzed yet. Please analyze first.")
+        
+        try:
+            # Find comment columns
+            comment_columns = [col for col in self.csv_data.columns if "必須" in col or "任意" in col]
+            
+            if not comment_columns:
+                raise HTTPException(status_code=400, detail="No comment columns found.")
+            
+            # Get top 50 comments based on importance and commonality score
+            importance_map = {'高': 3, '中': 2, '低': 1}
+            commonality_map = {'高': 3, '中': 2, '低': 1}
+            
+            df_with_score = self.csv_data.copy()
+            df_with_score['importance_score'] = df_with_score['重要性'].map(importance_map)
+            df_with_score['commonality_score'] = df_with_score['共通性'].map(commonality_map)
+            df_with_score['total_score'] = df_with_score['importance_score'] * df_with_score['commonality_score']
+            
+            # Get top 50 comments
+            top_50 = df_with_score.nlargest(50, 'total_score')
+            
+            # Prepare comments for analysis
+            comments_for_analysis = []
+            for _, row in top_50.iterrows():
+                comment_dict = row[comment_columns].dropna().to_dict()
+                comment_text = json.dumps(comment_dict, ensure_ascii=False)
+                comments_for_analysis.append({
+                    "comment": comment_text,
+                    "sentiment": row['感情'],
+                    "category": row['カテゴリ'],
+                    "importance": row['重要性'],
+                    "commonality": row['共通性']
+                })
+            
+            # Separate positive and negative comments
+            positive_comments = [c for c in comments_for_analysis if c['sentiment'] == 'ポジティブ']
+            negative_comments = [c for c in comments_for_analysis if c['sentiment'] == 'ネガティブ']
+            
+            # Create prompt for Nova Pro
+            prompt = f"""
+以下は講義に関するフィードバックコメントのトップ50件です。これらのコメントを分析して、包括的なレポートを作成してください。
+
+ポジティブなコメント（{len(positive_comments)}件）:
+{chr(10).join([f"- {c['comment']}" for c in positive_comments[:25]])}
+
+ネガティブなコメント（{len(negative_comments)}件）:
+{chr(10).join([f"- {c['comment']}" for c in negative_comments[:25]])}
+
+以下の形式でレポートを作成してください：
+
+1. ポジティブな意見のまとめ：
+受講者から評価されている点を具体的にまとめてください。共通するテーマや特に評価の高い要素を抽出し、講義の強みを明確にしてください。
+
+2. ネガティブな意見のまとめ：
+受講者が改善を求めている点を具体的にまとめてください。共通する課題や問題点を抽出し、優先度の高い改善項目を明確にしてください。
+
+3. 総合的な洞察：
+ポジティブとネガティブな意見を総合して、講義全体の評価と今後の改善方向性について洞察を提供してください。具体的な改善提案も含めてください。
+
+各セクションは段落形式で、読みやすく構造化してください。
+"""
+
+            # Use Nova Pro for report generation
+            model_id = "amazon.nova-pro-v1:0"
+            agent = generate_agent(
+                model_id=model_id,
+                output_type=str,
+                retries=3,
+                temperature=0.3,
+                max_tokens=4000,
+                timeout=120,
+            )
+
+            response = await agent.run([prompt])
+            report_text = response.output
+
+            # Calculate cost
+            input_tokens = response.usage().request_tokens
+            output_tokens = response.usage().response_tokens
+            total_tokens = response.usage().total_tokens
+            think_tokens = total_tokens - input_tokens - output_tokens
+
+            input_cost, output_cost, think_cost = calculate_cost(
+                model_name=model_id,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                think_tokens=think_tokens,
+            )
+            total_cost = input_cost + output_cost + think_cost
+
+            # Parse the report into sections
+            sections = report_text.split('\n\n')
+            
+            positive_summary = ""
+            negative_summary = ""
+            overall_insights = ""
+            
+            current_section = ""
+            for section in sections:
+                if "ポジティブな意見" in section or "1." in section:
+                    current_section = "positive"
+                    positive_summary += section.replace("1. ポジティブな意見のまとめ：", "").strip() + "\n\n"
+                elif "ネガティブな意見" in section or "2." in section:
+                    current_section = "negative"
+                    negative_summary += section.replace("2. ネガティブな意見のまとめ：", "").strip() + "\n\n"
+                elif "総合的な洞察" in section or "3." in section:
+                    current_section = "insights"
+                    overall_insights += section.replace("3. 総合的な洞察：", "").strip() + "\n\n"
+                else:
+                    if current_section == "positive":
+                        positive_summary += section + "\n\n"
+                    elif current_section == "negative":
+                        negative_summary += section + "\n\n"
+                    elif current_section == "insights":
+                        overall_insights += section + "\n\n"
+
+            return {
+                "positive_summary": positive_summary.strip(),
+                "negative_summary": negative_summary.strip(),
+                "overall_insights": overall_insights.strip(),
+                "total_comments_analyzed": len(comments_for_analysis),
+                "positive_count": len(positive_comments),
+                "negative_count": len(negative_comments),
+                "total_cost": round(total_cost, 4),
+                "cost_display": f"${total_cost:.4f}",
+                "model_used": "Amazon Nova Pro"
+            }
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
 
 
 # Global instance to store CSV data in memory

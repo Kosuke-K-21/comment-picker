@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import AlertSettings, { AlertCondition } from './AlertSettings';
+import AlertChecker from './AlertChecker';
 
 interface CSVData {
   filename: string;
@@ -29,6 +31,21 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo, onAnalysisCom
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
   const [dangerousComments, setDangerousComments] = useState<any[]>([]);
+  const [analysisCost, setAnalysisCost] = useState<string | null>(null);
+  const [alertConditions, setAlertConditions] = useState<AlertCondition[]>([]);
+  const [statistics, setStatistics] = useState<any>(null);
+
+  const fetchStatistics = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/csv/statistics`);
+      if (response.ok) {
+        const stats = await response.json();
+        setStatistics(stats);
+      }
+    } catch (err) {
+      console.error('Failed to fetch statistics:', err);
+    }
+  };
 
   const fetchData = async (page: number, size: number) => {
     setLoading(true);
@@ -93,6 +110,11 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo, onAnalysisCom
         setDangerousComments([]);
       }
       
+      // Set analysis cost if available
+      if (result.cost_display) {
+        setAnalysisCost(result.cost_display);
+      }
+      
       // Notify parent component that analysis is complete
       if (onAnalysisComplete) {
         onAnalysisComplete();
@@ -100,6 +122,9 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo, onAnalysisCom
       
       // Refresh the data to show the new columns
       fetchData(currentPage, pageSize);
+      
+      // Fetch statistics for alerts
+      fetchStatistics();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed');
     } finally {
@@ -172,9 +197,27 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo, onAnalysisCom
         </div>
       </div>
       
+      {analysisCost && (
+        <div className="analysis-cost-info">
+          <span className="cost-label">解析コスト:</span>
+          <span className="cost-value">{analysisCost}</span>
+        </div>
+      )}
+      
       {loading && <div className="loading">Loading...</div>}
       {error && <div className="error">{error}</div>}
       {analyzing && <div className="loading">コメントを解析しています...</div>}
+      
+      {analyzed && (
+        <>
+          <AlertChecker conditions={alertConditions} statistics={statistics} />
+          <AlertSettings 
+            conditions={alertConditions} 
+            onConditionsChange={setAlertConditions}
+            statistics={statistics}
+          />
+        </>
+      )}
       
       {dangerousComments.length > 0 && (
         <div className="danger-alert">

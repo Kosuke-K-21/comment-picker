@@ -52,3 +52,9 @@ async def get_top_comments(
 ) -> Dict[str, Any]:
     """Get top comments based on importance and commonality score"""
     return csv_service.get_top_comments(max_count=max_count)
+
+
+@router.post("/generate-report")
+async def generate_comment_report() -> Dict[str, Any]:
+    """Generate a comprehensive report from top 50 comments using Nova Pro"""
+    return await csv_service.generate_comment_report()

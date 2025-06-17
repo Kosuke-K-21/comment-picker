@@ -4,6 +4,7 @@ import CSVUploader from './CSVUploader';
 import CSVViewer from './CSVViewer';
 import AnalysisResults from './AnalysisResults';
 import TopComments from './TopComments';
+import CommentReport from './CommentReport';
 
 interface ApiResponse {
   message: string;
@@ -14,7 +15,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [uploadInfo, setUploadInfo] = useState<any>(null);
   const [analyzed, setAnalyzed] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'data' | 'results' | 'top-comments'>('data');
+  const [activeTab, setActiveTab] = useState<'data' | 'results' | 'top-comments' | 'report'>('data');
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   useEffect(() => {
@@ -98,6 +99,13 @@ const App: React.FC = () => {
                 >
                   🏆 トップコメント
                 </button>
+                <button 
+                  className={`tab-button ${activeTab === 'report' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('report')}
+                  disabled={!analyzed}
+                >
+                  📋 レポート
+                </button>
               </div>
               
               <div className="tab-content">
@@ -116,6 +124,12 @@ const App: React.FC = () => {
                 )}
                 {activeTab === 'top-comments' && (
                   <TopComments 
+                    apiUrl={apiUrl}
+                    analyzed={analyzed}
+                  />
+                )}
+                {activeTab === 'report' && (
+                  <CommentReport 
                     apiUrl={apiUrl}
                     analyzed={analyzed}
                   />
