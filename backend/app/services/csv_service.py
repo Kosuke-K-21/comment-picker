@@ -1,9 +1,130 @@
 import pandas as pd
 import io
 import random
-from typing import List, Dict, Any
+import os
+import asyncio
+import json
+from typing import List, Dict, Any, Optional
+from enum import Enum
 from fastapi import UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent
+from pydantic_ai.models.bedrock import BedrockConverseModel, BedrockModelSettings
+import dotenv
+
+
+# Load environment variables
+dotenv.load_dotenv()
+
+
+class SentimentEnum(str, Enum):
+    POSITIVE = 'ポジティブ'
+    NEUTRAL = '中立'
+    NEGATIVE = 'ネガティブ'
+
+
+class CategoryEnum(str, Enum):
+    LECTURE_CONTENT = '講義内容'
+    LECTURE_MATERIAL = '講義資料'
+    OPERATION = '運営'
+    OTHER = 'その他'
+
+
+class ImportanceEnum(str, Enum):
+    HIGH = '高'
+    MEDIUM = '中'
+    LOW = '低'
+
+
+class CommonalityEnum(str, Enum):
+    HIGH = '高'
+    MEDIUM = '中'
+    LOW = '低'
+
+
+class EvalOutput(BaseModel):
+    sentiment: SentimentEnum = Field(description="コメントに対する感情の分類")
+    category: CategoryEnum = Field(description="コメントに対するカテゴリの分類")
+    importance: ImportanceEnum = Field(description="コメントに対する重要度の分類")
+    commonality: CommonalityEnum = Field(description="コメントに対する共通性の分類")
+
+
+def generate_agent(
+    model_id: str,
+    output_type: Optional[BaseModel] = None,
+    retries: int = 5,
+    temperature: float = 0.2,
+    max_tokens: int = 20000,
+    timeout: int = 60,
+) -> Agent:
+    """Generate a Bedrock agent with specified settings"""
+    model = BedrockConverseModel(model_name=model_id)
+
+    model_settings = BedrockModelSettings(
+        temperature=temperature,
+        max_tokens=max_tokens,
+        timeout=timeout,
+    )
+
+    agent = Agent(
+        model,
+        retries=retries,
+        output_type=output_type or str,
+        model_settings=model_settings,
+        system_prompt="""
+        あなたは講義に関するフィードバックを分析するAIアシスタントです。
+        以下のルールに従って、コメントを分類してください。
+        1. コメントの感情を分類してください。
+        2. コメントのカテゴリを分類してください。
+        3. コメントの重要度を分類してください。
+        4. コメントの共通性を分類してください。
+        
+        各分類は以下の選択肢から選んでください。
+        
+        感情: ポジティブ, 中立, ネガティブ
+        カテゴリ: 講義内容, 講義資料, 運営, その他
+        重要度: 高, 中, 低
+        共通性: 高, 中, 低
+        """
+    )
+
+    return agent
+
+
+async def analyze_comment_with_llm(comment: str) -> Dict[str, Any]:
+    """Analyze a single comment using Bedrock Nova-lite LLM"""
+    try:
+        await asyncio.sleep(0.5)  # Rate limiting
+        
+        agent = generate_agent(
+            model_id="amazon.nova-lite-v1:0",
+            output_type=EvalOutput,
+            retries=3,
+            temperature=0.2,
+            max_tokens=2000,
+            timeout=60,
+        )
+
+        response = await agent.run([comment])
+        output = response.output
+
+        return {
+            "sentiment": output.sentiment.value,
+            "category": output.category.value,
+            "importance": output.importance.value,
+            "commonality": output.commonality.value,
+            "is_error": False,
+        }
+    except Exception as e:
+        print(f"Error analyzing comment: {e}")
+        return {
+            "sentiment": None,
+            "category": None,
+            "importance": None,
+            "commonality": None,
+            "is_error": True,
+        }
 
 
 class CSVService:
@@ -13,34 +134,56 @@ class CSVService:
         self.analyzed: bool = False
     
     async def upload_csv(self, file: UploadFile) -> Dict[str, Any]:
-        """Upload and parse CSV file"""
-        if not file.filename.endswith('.csv'):
-            raise HTTPException(status_code=400, detail="File must be a CSV")
+        """Upload and parse Excel/CSV file"""
+        if file.filename is None:
+            raise HTTPException(status_code=400, detail="No filename provided")
+            
+        if not (file.filename.endswith('.csv') or file.filename.endswith('.xlsx')):
+            raise HTTPException(status_code=400, detail="File must be a CSV or Excel file")
         
         try:
             # Read the file content
             content = await file.read()
             
-            # Parse CSV using pandas
-            csv_string = content.decode('utf-8')
-            self.csv_data = pd.read_csv(io.StringIO(csv_string))
+            # Parse file using pandas
+            if file.filename.endswith('.xlsx'):
+                # Parse Excel file
+                self.csv_data = pd.read_excel(io.BytesIO(content))
+            else:
+                # Parse CSV file
+                csv_string = content.decode('utf-8')
+                self.csv_data = pd.read_csv(io.StringIO(csv_string))
+            
             self.filename = file.filename
             self.analyzed = False
+            
+            # Filter to show only comment columns
+            comment_columns = [col for col in self.csv_data.columns if "必須" in col or "任意" in col]
             
             return {
                 "filename": self.filename,
                 "total_rows": len(self.csv_data),
                 "columns": list(self.csv_data.columns),
-                "message": "CSV uploaded successfully"
+                "comment_columns": comment_columns,
+                "message": f"{'Excel' if file.filename.endswith('.xlsx') else 'CSV'} uploaded successfully"
             }
         
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error processing CSV: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
     
     def get_paginated_data(self, page: int = 1, page_size: int = 10) -> Dict[str, Any]:
-        """Get paginated CSV data"""
+        """Get paginated data showing only comment columns"""
         if self.csv_data.empty:
-            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a CSV file first.")
+            raise HTTPException(status_code=404, detail="No data available. Please upload a file first.")
+        
+        # Get comment columns
+        comment_columns = [col for col in self.csv_data.columns if "必須" in col or "任意" in col]
+        
+        # Include analysis columns if analyzed - put them at the beginning
+        display_columns = []
+        if self.analyzed:
+            display_columns.extend(['感情', 'カテゴリ', '重要性', '共通性'])
+        display_columns.extend(comment_columns)
         
         # Calculate pagination
         total_rows = len(self.csv_data)
@@ -49,10 +192,10 @@ class CSVService:
         if page < 1 or page > total_pages:
             raise HTTPException(status_code=400, detail=f"Page must be between 1 and {total_pages}")
         
-        # Get the data for the current page
+        # Get the data for the current page, only display columns
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
-        page_data = self.csv_data.iloc[start_idx:end_idx]
+        page_data = self.csv_data[display_columns].iloc[start_idx:end_idx]
         
         # Convert to list of dictionaries for JSON serialization
         data = page_data.to_dict('records')
@@ -68,7 +211,8 @@ class CSVService:
                 "has_next": page < total_pages,
                 "has_previous": page > 1
             },
-            "columns": list(self.csv_data.columns)
+            "columns": display_columns,
+            "comment_columns": comment_columns
         }
     
     def get_csv_info(self) -> Dict[str, Any]:
@@ -88,54 +232,77 @@ class CSVService:
             "analyzed": self.analyzed
         }
     
-    def analyze_comments(self) -> Dict[str, Any]:
-        """Analyze comments using LLM (currently using random values)"""
+    async def analyze_comments(self) -> Dict[str, Any]:
+        """Analyze comments using Bedrock Nova-lite LLM"""
         if self.csv_data.empty:
-            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a CSV file first.")
+            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a file first.")
         
         if self.analyzed:
             return {
-                "message": "CSV has already been analyzed",
+                "message": "File has already been analyzed",
                 "total_rows": len(self.csv_data),
                 "analyzed": True
             }
         
         try:
-            # Check if required columns exist
-            required_columns = ['コメントID', '受講生ID', 'コメント']
-            missing_columns = [col for col in required_columns if col not in self.csv_data.columns]
+            # Find comment columns - Excel has 6 comment columns
+            comment_columns = [col for col in self.csv_data.columns if "必須" in col or "任意" in col]
             
-            if missing_columns:
-                # Try alternative column names
-                alt_mapping = {
-                    'コメントID': ['comment_id', 'id', 'Comment ID'],
-                    '受講生ID': ['student_id', 'user_id', 'Student ID'],
-                    'コメント': ['comment', 'comments', 'Comment']
-                }
-                
-                for missing_col in missing_columns:
-                    found = False
-                    for alt_col in alt_mapping.get(missing_col, []):
-                        if alt_col in self.csv_data.columns:
-                            self.csv_data = self.csv_data.rename(columns={alt_col: missing_col})
-                            found = True
-                            break
-                    if not found:
-                        raise HTTPException(
-                            status_code=400, 
-                            detail=f"Required column '{missing_col}' not found. Expected columns: {required_columns}"
-                        )
+            if not comment_columns:
+                raise HTTPException(status_code=400, detail="No comment columns found. Expected columns with '必須' or '任意'")
             
-            # Add analysis columns with random values (placeholder for LLM)
-            sentiment_options = ['ポジティブ', '中立', 'ネガティブ']
-            category_options = ['講義内容', '講義資料', '運営', 'その他']
-            importance_options = ['高', '中', '低']
-            commonality_options = ['高', '中', '低']
+            # Combine all comment columns into JSON format for each row
+            comments = self.csv_data[comment_columns].apply(
+                lambda row: json.dumps(row.dropna().to_dict(), ensure_ascii=False), axis=1
+            ).tolist()
             
-            self.csv_data['感情'] = [random.choice(sentiment_options) for _ in range(len(self.csv_data))]
-            self.csv_data['カテゴリ'] = [random.choice(category_options) for _ in range(len(self.csv_data))]
-            self.csv_data['重要性'] = [random.choice(importance_options) for _ in range(len(self.csv_data))]
-            self.csv_data['共通性'] = [random.choice(commonality_options) for _ in range(len(self.csv_data))]
+            # Create tasks for LLM analysis
+            tasks = [analyze_comment_with_llm(comment) for comment in comments]
+            
+            # Process with semaphore for rate limiting
+            semaphore = asyncio.Semaphore(500)  # Limit concurrent requests
+            
+            async def process_with_semaphore(task):
+                async with semaphore:
+                    return await task
+            
+            # Execute all tasks
+            results = await asyncio.gather(*[process_with_semaphore(task) for task in tasks], return_exceptions=True)
+            
+            # Process results
+            processed_results = []
+            error_count = 0
+            
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    print(f"Error processing comment {i}: {result}")
+                    processed_results.append({
+                        "sentiment": "中立",  # Default fallback
+                        "category": "その他",
+                        "importance": "中",
+                        "commonality": "中",
+                        "is_error": True,
+                    })
+                    error_count += 1
+                else:
+                    if result.get("is_error", False):
+                        # Use fallback values for errors
+                        processed_results.append({
+                            "sentiment": "中立",
+                            "category": "その他", 
+                            "importance": "中",
+                            "commonality": "中",
+                            "is_error": True,
+                        })
+                        error_count += 1
+                    else:
+                        processed_results.append(result)
+            
+            # Add analysis columns to DataFrame
+            self.csv_data['感情'] = [r['sentiment'] for r in processed_results]
+            self.csv_data['カテゴリ'] = [r['category'] for r in processed_results]
+            self.csv_data['重要性'] = [r['importance'] for r in processed_results]
+            self.csv_data['共通性'] = [r['commonality'] for r in processed_results]
             
             self.analyzed = True
             
@@ -148,19 +315,23 @@ class CSVService:
             dangerous_list = []
             if not dangerous_comments.empty:
                 for _, row in dangerous_comments.iterrows():
-                    comment_id = row.get('コメントID', row.get('comment_id', row.get('id', 'N/A')))
-                    comment_text = row.get('コメント', row.get('comment', row.get('comments', 'N/A')))
+                    # Use index as ID and combine comment columns
+                    comment_id = row.name
+                    comment_dict = row[comment_columns].dropna().to_dict()
+                    comment_text = json.dumps(comment_dict, ensure_ascii=False)
                     dangerous_list.append({
                         "id": str(comment_id),
-                        "comment": str(comment_text)
+                        "comment": comment_text
                     })
             
             return {
-                "message": "CSV analysis completed successfully",
+                "message": "Analysis completed successfully",
                 "total_rows": len(self.csv_data),
                 "analyzed": True,
                 "new_columns": ['感情', 'カテゴリ', '重要性', '共通性'],
-                "dangerous_comments": dangerous_list
+                "dangerous_comments": dangerous_list,
+                "error_rate": f"{error_count / len(self.csv_data):.2%}" if len(self.csv_data) > 0 else "0%",
+                "comment_columns": comment_columns
             }
             
         except Exception as e:
@@ -265,12 +436,18 @@ class CSVService:
     def get_top_comments(self, max_count: int = 5) -> Dict[str, Any]:
         """Get top comments based on commonality and importance score"""
         if self.csv_data.empty:
-            raise HTTPException(status_code=404, detail="No CSV data available. Please upload a CSV file first.")
+            raise HTTPException(status_code=404, detail="No data available. Please upload a file first.")
         
         if not self.analyzed:
-            raise HTTPException(status_code=400, detail="CSV has not been analyzed yet. Please analyze the CSV first.")
+            raise HTTPException(status_code=400, detail="File has not been analyzed yet. Please analyze first.")
         
         try:
+            # Find comment columns
+            comment_columns = [col for col in self.csv_data.columns if "必須" in col or "任意" in col]
+            
+            if not comment_columns:
+                raise HTTPException(status_code=400, detail="No comment columns found. Expected columns with '必須' or '任意'")
+            
             # Convert importance and commonality to numeric scores
             importance_map = {'高': 3, '中': 2, '低': 1}
             commonality_map = {'高': 3, '中': 2, '低': 1}
@@ -285,11 +462,13 @@ class CSVService:
             overall_top = df_with_score.nlargest(max_count, 'total_score')
             overall_comments = []
             for _, row in overall_top.iterrows():
-                comment_id = row.get('コメントID', row.get('comment_id', row.get('id', 'N/A')))
-                comment_text = row.get('コメント', row.get('comment', row.get('comments', 'N/A')))
+                # Use index as ID and combine comment columns
+                comment_id = row.name
+                comment_dict = row[comment_columns].dropna().to_dict()
+                comment_text = json.dumps(comment_dict, ensure_ascii=False)
                 overall_comments.append({
                     "id": str(comment_id),
-                    "comment": str(comment_text),
+                    "comment": comment_text,
                     "category": row['カテゴリ'],
                     "sentiment": row['感情'],
                     "importance": row['重要性'],
@@ -307,11 +486,13 @@ class CSVService:
                 
                 category_comments = []
                 for _, row in category_top.iterrows():
-                    comment_id = row.get('コメントID', row.get('comment_id', row.get('id', 'N/A')))
-                    comment_text = row.get('コメント', row.get('comment', row.get('comments', 'N/A')))
+                    # Use index as ID and combine comment columns
+                    comment_id = row.name
+                    comment_dict = row[comment_columns].dropna().to_dict()
+                    comment_text = json.dumps(comment_dict, ensure_ascii=False)
                     category_comments.append({
                         "id": str(comment_id),
-                        "comment": str(comment_text),
+                        "comment": comment_text,
                         "category": row['カテゴリ'],
                         "sentiment": row['感情'],
                         "importance": row['重要性'],

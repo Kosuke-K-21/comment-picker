@@ -8,8 +8,8 @@ router = APIRouter(prefix="/csv", tags=["csv"])
 
 
 @router.post("/upload")
-async def upload_csv(file: UploadFile = File(...)) -> Dict[str, Any]:
-    """Upload a CSV file"""
+async def upload_file(file: UploadFile = File(...)) -> Dict[str, Any]:
+    """Upload a CSV or Excel file"""
     return await csv_service.upload_csv(file)
 
 
@@ -31,7 +31,7 @@ async def get_csv_info() -> Dict[str, Any]:
 @router.post("/analyze")
 async def analyze_csv() -> Dict[str, Any]:
     """Analyze the uploaded CSV comments"""
-    return csv_service.analyze_comments()
+    return await csv_service.analyze_comments()
 
 
 @router.get("/download")

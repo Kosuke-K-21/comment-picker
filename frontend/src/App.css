@@ -13,7 +13,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  font-size: calc(10px + 2vmin);
+  font-size: calc(6px + 1vmin);
   overflow-y: auto;
 }
 
@@ -29,11 +29,12 @@
 .csv-section {
   margin-top: 30px;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   display: flex;
   flex-direction: column;
   gap: 30px;
 }
+
 
 .csv-uploader {
   background-color: rgba(255, 255, 255, 0.1);
@@ -235,6 +236,36 @@
   word-wrap: break-word;
 }
 
+.comment-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comment-section {
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+}
+
+.section-title {
+  background: #e9ecef;
+  color: #495057;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.section-content {
+  color: #333;
+  line-height: 1.5;
+  font-size: 14px;
+  padding: 10px 12px;
+  word-wrap: break-word;
+}
+
 .controls {
   display: flex;
   justify-content: space-between;
@@ -264,29 +295,58 @@
 .table-container {
   overflow-x: auto;
   margin-bottom: 20px;
+  background-color: rgba(40, 44, 52, 0.9);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .csv-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
-  background-color: white;
-  color: #333;
+  background-color: rgba(40, 44, 52, 0.95);
+  color: #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 12px;
 }
 
 .csv-table th,
 .csv-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
   text-align: left;
+  min-width: 200px;
+  max-width: 300px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  vertical-align: top;
+  font-size: 12px;
 }
 
 .csv-table th {
-  background-color: #f2f2f2;
+  background-color: rgba(97, 218, 251, 0.3);
   font-weight: bold;
+  color: #61dafb;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 2px solid #61dafb;
 }
 
 .csv-table tr:nth-child(even) {
-  background-color: #f9f9f9;
+  background-color: rgba(50, 54, 62, 0.8);
+}
+
+.csv-table tr:nth-child(odd) {
+  background-color: rgba(40, 44, 52, 0.9);
+}
+
+.csv-table tr:hover {
+  background-color: rgba(97, 218, 251, 0.2);
+  transition: background-color 0.2s ease;
 }
 
 .pagination {

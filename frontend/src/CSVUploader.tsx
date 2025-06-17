@@ -13,11 +13,11 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onUploadSuccess, apiUrl }) =>
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.name.endsWith('.csv')) {
+      if (selectedFile.name.endsWith('.csv') || selectedFile.name.endsWith('.xlsx')) {
         setFile(selectedFile);
         setError(null);
       } else {
-        setError('Please select a CSV file');
+        setError('Please select a CSV or Excel file');
         setFile(null);
       }
     }
@@ -61,12 +61,12 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onUploadSuccess, apiUrl }) =>
 
   return (
     <div className="csv-uploader">
-      <h3>Upload CSV File</h3>
+      <h3>Upload CSV or Excel File</h3>
       <div className="upload-section">
         <input
           id="csv-file"
           type="file"
-          accept=".csv"
+          accept=".csv,.xlsx"
           onChange={handleFileChange}
           disabled={uploading}
         />
@@ -75,7 +75,7 @@ const CSVUploader: React.FC<CSVUploaderProps> = ({ onUploadSuccess, apiUrl }) =>
           disabled={!file || uploading}
           className="upload-btn"
         >
-          {uploading ? 'Uploading...' : 'Upload CSV'}
+          {uploading ? 'Uploading...' : 'Upload File'}
         </button>
       </div>
       {error && <div className="error">{error}</div>}

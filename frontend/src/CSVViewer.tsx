@@ -186,7 +186,21 @@ const CSVViewer: React.FC<CSVViewerProps> = ({ apiUrl, uploadInfo, onAnalysisCom
             {dangerousComments.map((comment, index) => (
               <div key={index} className="dangerous-comment-item">
                 <div className="comment-id">No. {comment.id}</div>
-                <div className="comment-text">{comment.comment}</div>
+                <div className="comment-sections">
+                  {(() => {
+                    try {
+                      const commentObj = JSON.parse(comment.comment);
+                      return Object.entries(commentObj).map(([key, value], idx) => (
+                        <div key={idx} className="comment-section">
+                          <div className="section-title">{key}</div>
+                          <div className="section-content">{String(value)}</div>
+                        </div>
+                      ));
+                    } catch {
+                      return <div className="comment-text">{comment.comment}</div>;
+                    }
+                  })()}
+                </div>
               </div>
             ))}
           </div>
