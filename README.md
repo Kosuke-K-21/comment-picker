@@ -1,129 +1,123 @@
 # Comment Picker
 
-A full-stack application with a FastAPI backend and React TypeScript frontend, both containerized with Docker.
+講義アンケートの自由記述コメントを自動で分析・分類するWebアプリケーションです。Amazon Nova LLMを使用して、大量のコメントを効率的に整理し、重要な意見を抽出して講義改善に活用できます。
 
-## Architecture
+## 概要
 
-- **Backend**: FastAPI (Python) - `/backend`
-- **Frontend**: React + TypeScript - `/frontend`
-- **Containerization**: Docker + Docker Compose
+Comment Pickerは、FastAPIバックエンドとReact TypeScriptフロントエンドを組み合わせたフルスタックアプリケーションです。Docker化されており、簡単にデプロイできます。
 
-## Quick Start
+## アーキテクチャ
 
-### Prerequisites
+- **バックエンド**: FastAPI (Python) - `/backend`
+- **フロントエンド**: React + TypeScript - `/frontend`
+- **AI/LLM**: Amazon Nova-lite & Nova-pro (Amazon Bedrock経由)
+- **コンテナ化**: Docker + Docker Compose
+
+## 主な機能
+
+### 1. CSVファイルアップロード機能
+- Excel（.xlsx）またはCSV（.csv）形式のファイルをアップロード
+- 「必須」「任意」を含むコメント列を自動検出
+- アップロード後、データの概要情報を表示
+
+### 2. AI分析機能
+- **Amazon Nova-lite LLM**を使用したコメント分析
+- 以下の4つの観点で自動分類：
+  - **感情分析**: ポジティブ/中立/ネガティブ
+  - **カテゴリ分類**: 講義内容/講義資料/運営/その他
+  - **重要度**: 高/中/低
+  - **共通性**: 高/中/低
+- 分析コストをリアルタイムで表示
+
+### 3. 危険コメント検出
+- ネガティブかつ重要度が高いコメントを自動検出
+- 緊急対応が必要なコメントをアラート表示
+
+### 4. 統計情報の可視化
+- カテゴリ別コメント件数・割合の表示
+- 感情分析結果の可視化（全体・カテゴリ別）
+- 円グラフと棒グラフによる直感的な表示
+
+### 5. トップコメント表示
+- 重要度×共通性スコアによるランキング
+- 全体およびカテゴリ別のトップコメント表示
+- 表示件数の調整可能（1-10件）
+
+### 6. アラート機能
+- カスタム条件によるアラート設定
+- 感情・カテゴリ・重要度の組み合わせ条件
+- 件数または割合での閾値設定
+- リアルタイムアラート通知
+
+### 7. レポート自動生成
+- **Amazon Nova-pro LLM**による包括的レポート作成
+- トップ50コメントの分析
+- ポジティブ意見・ネガティブ意見・総合洞察の3セクション構成
+
+### 8. データエクスポート
+- 分析結果を含むCSVファイルのダウンロード
+- タイムスタンプ付きファイル名で自動保存
+
+## クイックスタート
+
+### 前提条件
 
 - Docker
 - Docker Compose
+- AWS認証情報（Amazon Bedrock使用のため）
 
-### Running the Application
+### アプリケーションの起動
 
-1. Clone the repository and navigate to the project root
-2. Build and start both services:
+1. リポジトリをクローンしてプロジェクトルートに移動
+2. 環境変数を設定：
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+3. `backend/.env`ファイルを編集してAWS認証情報を設定：
+
+```env
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+```
+
+4. 両方のサービスをビルドして起動：
 
 ```bash
 docker-compose up --build
 ```
 
-This will:
-- Build the FastAPI backend and expose it on `http://localhost:8000`
-- Build the React frontend and expose it on `http://localhost:3000`
-- Set up networking between the services
+これにより以下が実行されます：
+- FastAPIバックエンドをビルドして `http://localhost:8000` で公開
+- Reactフロントエンドをビルドして `http://localhost:3000` で公開
+- サービス間のネットワークを設定
 
-### Accessing the Application
+### アプリケーションへのアクセス
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **Backend API Documentation**: http://localhost:8000/docs
+- **フロントエンド**: http://localhost:3000
+- **バックエンドAPI**: http://localhost:8000
+- **バックエンドAPIドキュメント**: http://localhost:8000/docs
 
-## Development
+## 使用方法
 
-### Backend Development
+### Step 1: ファイルアップロード
+1. Webアプリケーション（http://localhost:3000）にアクセス
+2. 「ファイルを選択」ボタンをクリック
+3. Excel（.xlsx）またはCSV（.csv）ファイルを選択
+4. 「アップロード」ボタンをクリック
 
-Navigate to the `backend` directory:
+### Step 2: データ確認
+1. 「📊 データ表示」タブでアップロードされたデータを確認
+2. ページネーション機能で大量データも快適に閲覧
 
-```bash
-cd backend
-```
+### Step 3: AI分析実行
+1. 「解析開始」ボタンをクリック
+2. 分析進行状況を確認
+3. 完了後、解析コストが表示される
 
-See `backend/README.md` for detailed backend development instructions.
-
-### Frontend Development
-
-Navigate to the `frontend` directory:
-
-```bash
-cd frontend
-```
-
-See `frontend/README.md` for detailed frontend development instructions.
-
-## Project Structure
-
-```
-comment-picker/
-├── backend/                 # FastAPI backend
-│   ├── app/
-│   │   └── main.py         # FastAPI application
-│   ├── Dockerfile          # Backend Docker configuration
-│   └── pyproject.toml      # Python dependencies
-├── frontend/               # React TypeScript frontend
-│   ├── src/
-│   │   ├── App.tsx         # Main React component
-│   │   └── index.tsx       # Application entry point
-│   ├── public/
-│   │   └── index.html      # HTML template
-│   ├── Dockerfile          # Frontend Docker configuration
-│   └── package.json        # Node.js dependencies
-├── docker-compose.yml      # Multi-service orchestration
-└── README.md              # This file
-```
-
-## Features
-
-- **Backend**:
-  - FastAPI with automatic API documentation
-  - CORS enabled for frontend communication
-  - Docker containerization
-
-- **Frontend**:
-  - React with TypeScript
-  - Webpack bundling
-  - Nginx serving in production
-  - Environment-based API URL configuration
-  - Docker containerization
-
-## Stopping the Application
-
-```bash
-docker-compose down
-```
-
-## Rebuilding After Changes
-
-```bash
-docker-compose up --build
-```
-
-## Troubleshooting
-
-### Port Conflicts
-
-If ports 3000 or 8000 are already in use, you can modify the port mappings in `docker-compose.yml`:
-
-```yaml
-services:
-  backend:
-    ports:
-      - "8001:80"  # Change 8000 to 8001
-  frontend:
-    ports:
-      - "3001:80"  # Change 3000 to 3001
-```
-
-### Network Issues
-
-If the frontend cannot connect to the backend, ensure both services are running and check the Docker network configuration.
-
-### Data
-
-Data stored in `data/` directory is artificially generated for testing purposes.
+### Step 4: 結果確認
+- **📈 解析結果タブ**: 統計情報と可視化
+- **🏆 トップコメントタブ**: 重要度の高いコメント
+- **📋 レポートタブ**: AI生成の包括的レポート
